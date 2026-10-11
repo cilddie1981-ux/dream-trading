@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Dream 框架交易工具</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="eyebrow">DREAM · FRAMEWORK TRADING</div>
+    <h1>框住財富｜交易框架分析</h1>
+    <p>以支撐壓力定義框架、以走勢斜率管理出場、以資金紅綠燈控制部位。</p>
+  </header>
+
+  <main>
+    <section class="notice">
+      <strong>使用提醒</strong>
+      <span>本工具是交易紀律與風險計算輔助工具，不會自動取得即時行情，也不構成投資建議。請先核對最新價格與交易資料。</span>
+    </section>
+
+    <section class="panel">
+      <h2>1｜輸入交易框架</h2>
+      <form id="tradeForm">
+        <div class="grid">
+          <label>股票代號／名稱
+            <input id="symbol" placeholder="例如：2303 聯電" value="2303 聯電" required>
+          </label>
+          <label>分析日期
+            <input id="tradeDate" type="date">
+          </label>
+          <label>目前／收盤價
+            <input id="price" type="number" min="0" step="0.01" placeholder="例如：50.5" required>
+          </label>
+          <label>框架支撐
+            <input id="support" type="number" min="0" step="0.01" placeholder="支撐價" required>
+          </label>
+          <label>框架壓力
+            <input id="resistance" type="number" min="0" step="0.01" placeholder="壓力價" required>
+          </label>
+          <label>預計防守／停損價
+            <input id="stop" type="number" min="0" step="0.01" placeholder="需低於進場價" required>
+          </label>
+          <label>帳戶可用資金（元）
+            <input id="capital" type="number" min="0" step="1000" value="300000" required>
+          </label>
+          <label>單筆最大風險（%）
+            <input id="riskPct" type="number" min="0.1" max="10" step="0.1" value="1" required>
+          </label>
+          <label>預計進場價（選填）
+            <input id="entry" type="number" min="0" step="0.01" placeholder="預設以目前價估算">
+          </label>
+          <label>走勢斜率
+            <select id="slope">
+              <option value="rising">上升加速</option>
+              <option value="steady" selected>上升但斜率持平</option>
+              <option value="flat">斜率走平／動能減弱</option>
+              <option value="falling">斜率轉弱／下跌</option>
+            </select>
+          </label>
+          <label>近期交易狀態
+            <select id="streak">
+              <option value="green" selected>順風：策略有效、持續獲利</option>
+              <option value="neutral">中性：訊號不明確</option>
+              <option value="red">逆風：連續停損／市場節奏改變</option>
+            </select>
+          </label>
+          <label>持倉狀態
+            <select id="holding">
+              <option value="no" selected>尚未進場</option>
+              <option value="yes">已持有部位</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit" class="primary">分析交易框架</button>
+      </form>
+    </section>
+
+    <section id="results" class="panel results" aria-live="polite">
+      <h2>2｜分析結果</h2>
+      <p class="empty">輸入價格與框架資料後，按「分析交易框架」。</p>
+    </section>
+
+    <section class="panel">
+      <h2>Dream 三大紀律</h2>
+      <div class="principles">
+        <article><span class="number">01</span><h3>框架式交易</h3><p>先定義支撐、壓力與防守位置。框架失效就執行停損，不因套牢而臨時改成長抱策略。</p></article>
+        <article><span class="number">02</span><h3>觀察走勢斜率</h3><p>價格推升速度變慢、斜率走平時，評估減碼或出場，不盲目等待反轉 K 線。</p></article>
+        <article><span class="number">03</span><h3>交易紅綠燈</h3><p>順風期仍須依風險上限操作；逆風期縮小部位或觀望，優先保護資金。</p></article>
+      </div>
+    </section>
+    <footer>本工具僅供教育、紀律檢查與試算。價格跳空、滑價、手續費、交易稅與流動性可能使實際損失高於估算。</footer>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
