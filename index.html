@@ -1,9 +1,29 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#101827"><title>Dream 模型共振選股系統</title><link rel="stylesheet" href="style.css"></head>
-<body><header class="hero"><div class="eyebrow">DREAM · MODEL CONFLUENCE SCANNER</div><h1>框住財富｜Dream 模型共振選股</h1><p>以框架位置、走勢斜率、風險防守與交易紅綠燈，整理優先觀察名單。</p></header>
-<main><section class="notice"><strong>重要說明</strong><span>本版本是手動輸入資料的模型共振篩選器，不會自動連接即時行情或掃描全市場。請核對收盤價與技術位置；排名依本工具示範規則計算，不代表獲利機率。</span></section>
-<section class="panel"><div class="section-heading"><div><h2>1｜設定共振條件</h2><p class="muted">每檔股票輸入收盤價、支撐／壓力、停損與斜率，再評分。</p></div><button type="button" id="addRow" class="secondary">＋ 新增股票</button></div>
-<div class="table-wrap"><table><thead><tr><th>股票代號／名稱</th><th>收盤價</th><th>支撐</th><th>壓力</th><th>防守／停損</th><th>斜率</th><th>交易狀態</th><th></th></tr></thead><tbody id="stockRows"></tbody></table></div>
-<div class="controls"><label>帳戶資金（元）<input id="capital" type="number" min="0" step="1000" value="300000"></label><label>單筆風險上限（%）<input id="riskPct" type="number" min="0.1" max="10" step="0.1" value="1"></label><label>篩選門檻<select id="minScore"><option value="70">70 分以上（較嚴格）</option><option value="55" selected>55 分以上（一般）</option><option value="0">顯示全部</option></select></label></div><button type="button" id="scanBtn" class="primary">執行 Dream 共振評分</button></section>
-<section class="panel" id="summary"><h2>2｜模型共振排名</h2><p class="empty">輸入候選股票資料，再按「執行 Dream 共振評分」。</p></section>
-<section class="panel"><h2>3｜評分規則</h2><div class="principles"><article><span class="number">40 分</span><h3>框架位置</h3><p>依價格在支撐與壓力區間的位置評分；跌破支撐或停損視為框架失效。</p></article><article><span class="number">30 分</span><h3>走勢斜率</h3><p>上升加速得分最高；斜率持平降低分數；走平或轉弱會扣分。</p></article><article><span class="number">30 分</span><h3>資金紅綠燈</h3><p>順風狀態得分較高；中性降低分數；逆風狀態扣分並縮小部位試算。</p></article></div><p class="muted small">分數是示範規則，未經回測驗證。第一目標＝參考進場價＋1R，第二目標＝參考進場價＋2R。</p></section><footer>僅供教育、研究與風險試算，不構成投資建議。行情由使用者手動輸入；請考慮交易成本、滑價、跳空與流動性。</footer></main><script src="app.js?v=5" defer></script></body></html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#101827">
+<title>框住財富｜Dream V3 全市場掃描</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="hero"><div class="eyebrow">DREAM · FULL MARKET SCANNER · V3</div><h1>框住財富｜Dream V3 全市場掃描</h1><p>以公開行情資料建立候選清單，再用框架位置、動能代理指標與紅綠燈風控排序。</p></header>
+<main>
+<section class="notice"><strong>資料與風險說明</strong><span>本工具嘗試讀取證交所／櫃買中心公開行情，通常為最近交易日資料，非即時報價。V3 目前以單日開高低收、漲跌幅與成交量作初篩；單日資料不能證明多日趨勢斜率，也不能取代人工確認支撐壓力。若官方 API 或瀏覽器跨網域限制，請使用「載入 CSV」或稍後重試。評分是研究用篩選模型，不構成買賣建議。</span></section>
+<section class="panel">
+<div class="section-heading"><div><h2>1｜全市場行情</h2><p class="muted">抓取上市＋上櫃最新可取得的日行情，計算 Dream 候選分數。</p></div><button type="button" id="refreshBtn" class="secondary">↻ 更新全市場資料</button></div>
+<div class="controls">
+<label>最低收盤價（元）<input id="minPrice" type="number" min="0" step="0.1" value="10"></label>
+<label>最低成交量（張）<input id="minVolume" type="number" min="0" step="100" value="500"></label>
+<label>最低共振分數<select id="minScore"><option value="75">75 分以上（嚴格）</option><option value="60" selected>60 分以上（一般）</option><option value="0">顯示全部</option></select></label>
+<label>市場<select id="marketFilter"><option value="all">上市＋上櫃</option><option value="TWSE">上市</option><option value="TPEx">上櫃</option></select></label>
+<label>顯示筆數<select id="limit"><option value="50">前 50 檔</option><option value="100" selected>前 100 檔</option><option value="300">前 300 檔</option><option value="all">全部符合條件</option></select></label>
+<label>帳戶資金（元）<input id="capital" type="number" min="0" step="10000" value="300000"></label>
+<label>單筆風險上限（%）<input id="riskPct" type="number" min="0.1" max="10" step="0.1" value="1"></label>
+</div>
+<div class="button-row"><button type="button" id="scanBtn" class="primary">執行 Dream 全市場掃描</button><label class="file-label">載入行情 CSV <input id="csvFile" type="file" accept=".csv,text/csv"></label><button type="button" id="exportBtn" class="secondary">匯出掃描結果 CSV</button></div>
+<div id="loadStatus" class="status yellow">尚未載入行情。請按「更新全市場資料」。</div>
+</section>
+<section class="panel" id="summary"><h2>2｜Dream 共振排名</h2><p class="empty">載入行情後即可掃描。系統不會自動下單。</p></section>
+<section class="panel"><h2>3｜V3 評分邏輯</h2><div class="principles"><article><span class="number">最多 35 分</span><h3>單日框架位置</h3><p>收盤在當日高低區間的位置越靠上，分數越高；這是單日位置代理，不是已驗證的多日支撐壓力。</p></article><article><span class="number">最多 35 分</span><h3>動能代理</h3><p>依當日漲跌幅評分；無法從單日行情推定多日斜率，請另看日 K 線確認是否走平。</p></article><article><span class="number">最多 30 分</span><h3>流動性與風控</h3><p>以成交量作流動性初篩，依紅綠燈紀律設定保守部位試算；實際停損需以多日框架確認。</p></article></div><p class="muted small">參考框架：支撐代理＝當日最低價、壓力／突破觀察＝當日最高價；防守代理＝當日低點下方 0.5 倍日內振幅。這些只是篩選用估算，不應直接當成交易指令。</p></section>
+<footer>行情來源：台灣證券交易所 OpenAPI、證券櫃檯買賣中心 OpenAPI。若資料未更新、欄位格式改變或跨網域請求失敗，畫面會提示錯誤；請勿把缺資料解讀為零成交或無交易。投資有風險，請自行核對行情及交易成本。</footer>
+</main><script src="app.js?v=3" defer></script>
+</body></html>
