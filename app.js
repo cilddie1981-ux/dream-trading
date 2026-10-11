@@ -1,91 +1,11 @@
-const $ = (id) => document.getElementById(id);
-const today = new Date();
-$("tradeDate").value = new Date(today.getTime() - today.getTimezoneOffset()*60000).toISOString().slice(0,10);
-
-const money = n => Number.isFinite(n) ? n.toLocaleString("zh-TW",{style:"currency",currency:"TWD",maximumFractionDigits:2}) : "—";
-const price = n => Number.isFinite(n) ? n.toLocaleString("zh-TW",{maximumFractionDigits:2}) : "—";
-const num = id => Number($(id).value);
-const fmtCard = (label,value) => `<div class="card"><div class="label">${label}</div><div class="value">${value}</div></div>`;
-
-$("tradeForm").addEventListener("submit", event => {
-  event.preventDefault();
-  const symbol = $("symbol").value.trim();
-  const current = num("price"), support = num("support"), resistance = num("resistance"), stop = num("stop");
-  const capital = num("capital"), riskPct = num("riskPct"), entry = $("entry").value ? num("entry") : current;
-  const slope = $("slope").value, streak = $("streak").value, holding = $("holding").value;
-  const results = $("results");
-  if (!(support > 0 && resistance > support && current > 0 && stop > 0 && entry > 0 && capital > 0 && riskPct > 0)) {
-    results.innerHTML = '<h2>2｜分析結果</h2><div class="status red"><strong>輸入資料有誤</strong>請確認價格大於 0、壓力高於支撐，且資金與風險比例有效。</div>';
-    return;
-  }
-  const validStop = stop < entry;
-  const riskPerShare = entry - stop;
-  const riskBudget = capital * riskPct / 100;
-  const maxSharesRisk = validStop ? Math.floor(riskBudget / riskPerShare) : 0;
-  const maxSharesCapital = Math.floor(capital / entry);
-  let shares = Math.max(0, Math.min(maxSharesRisk, maxSharesCapital));
-  let allocationFactor = streak === "red" ? 0.25 : streak === "neutral" ? 0.5 : 1;
-  shares = Math.floor(shares * allocationFactor);
-  const lotShares = Math.floor(shares / 1000) * 1000;
-  const target1 = entry + (entry - stop);
-  const target2 = entry + 2 * (entry - stop);
-  const frameworkRange = resistance - support;
-  const positionRisk = validStop ? lotShares * riskPerShare : 0;
-  const distanceToSupport = ((current - support) / support) * 100;
-  const distanceToResistance = ((resistance - current) / current) * 100;
-
-  let signalClass = "yellow", signalTitle = "等待確認", signalText = "價格仍需搭配框架與走勢確認，避免只因單一訊號進場。";
-  if (current < support || current <= stop) {
-    signalClass = "red"; signalTitle = "框架失效／防守優先";
-    signalText = "價格已跌破支撐或防守價。若已持有，依事前計畫處理，不應臨時改用其他策略攤平。";
-  } else if (current > resistance) {
-    signalClass = "yellow"; signalTitle = "壓力突破觀察";
-    signalText = "價格高於原框架壓力，需確認是否有效突破及是否有追價風險；不要直接把突破當成保證買點。";
-  } else if (slope === "rising" && streak === "green" && current >= support && current <= resistance) {
-    signalClass = "green"; signalTitle = "框架內順勢觀察";
-    signalText = "走勢斜率向上且交易狀態順風，可依計畫評估；仍須守住停損與單筆風險上限。";
-  }
-
-  let slopeText = {
-    rising: "斜率上升加速：可續看趨勢，但不代表應無上限加碼。",
-    steady: "斜率持平：追蹤推升速度是否繼續減弱，避免把盤整誤判為加速。",
-    flat: "斜率走平、動能減弱：依 Dream 原則評估減碼或出場，不必等待反轉 K 線。",
-    falling: "斜率轉弱／下跌：提高防守優先級，避免在動能轉弱時擴大部位。"
-  }[slope];
-  let lightText = streak === "green" ? "綠燈：可依策略運作，但部位仍受風險上限約束。" :
-    streak === "neutral" ? "黃燈：降低部位，等待市場節奏與訊號更明確。" :
-    "紅燈：建議縮小部位或空倉觀望；本工具將風險計算部位再縮至 25%。";
-  if (!validStop) {
-    signalClass = "red"; signalTitle = "停損設定不合理";
-    signalText = "多單情境下，防守／停損價應低於預計進場價。請先重新定義框架與失效位置。";
-  }
-
-  results.innerHTML = `
-    <h2>2｜分析結果：${escapeHtml(symbol)}</h2>
-    <div class="status ${signalClass}"><strong>${signalTitle}</strong>${signalText}</div>
-    <div class="cards">
-      ${fmtCard("目前／收盤價", money(current))}
-      ${fmtCard("框架區間", `${price(support)} — ${price(resistance)}`)}
-      ${fmtCard("進場參考價", money(entry))}
-      ${fmtCard("第一目標（1R）", money(target1))}
-      ${fmtCard("第二目標（2R）", money(target2))}
-      ${fmtCard("預設停損價", money(stop))}
-      ${fmtCard("單筆風險預算", money(riskBudget))}
-      ${fmtCard("建議股數（整張）", `${lotShares.toLocaleString("zh-TW")} 股`)}
-      ${fmtCard("預估投入金額", money(lotShares * entry))}
-    </div>
-    <div class="status ${streak === "red" || slope === "falling" || slope === "flat" ? "yellow" : "green"}"><strong>走勢斜率</strong>${slopeText}</div>
-    <div class="status ${streak === "red" ? "red" : streak === "neutral" ? "yellow" : "green"}"><strong>資金紅綠燈</strong>${lightText}</div>
-    <h3>執行檢查</h3>
-    <ul class="detail-list">
-      <li>價格相對支撐：${distanceToSupport.toFixed(2)}%；相對壓力：${distanceToResistance.toFixed(2)}%。</li>
-      <li>進場至停損每股風險：${validStop ? money(riskPerShare) : "設定錯誤"}；風險計算股數上限（未套用紅綠燈折減）：${validStop ? maxSharesRisk.toLocaleString("zh-TW") : "0"} 股。</li>
-      <li>框架寬度：${price(frameworkRange)}；目標價為風險倍數試算，不是價格預測或保證。</li>
-      <li>${holding === "yes" ? "目前為持倉狀態：若防守框架失效，依原定規則執行，避免改變交易理由。" : "目前尚未進場：先定義失效位置與可承受損失，再決定是否下單。"}</li>
-      <li>未計入手續費、交易稅、滑價、跳空與最低交易單位等因素；台股零股／整股規則請自行確認。</li>
-    </ul>`;
-});
-
-function escapeHtml(text) {
-  return text.replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
-}
+const $=id=>document.getElementById(id);
+const defaults=[{symbol:"2303 聯電",slope:"rising",light:"green"},{symbol:"2408 南亞科",slope:"steady",light:"neutral"},{symbol:"2492 華新科",slope:"flat",light:"red"}];
+const money=n=>Number.isFinite(n)?n.toLocaleString("zh-TW",{style:"currency",currency:"TWD",maximumFractionDigits:2}):"—";const fmt=n=>Number.isFinite(n)?n.toLocaleString("zh-TW",{maximumFractionDigits:2}):"—";
+const slopeOpts=[['rising','上升加速'],['steady','斜率持平'],['flat','走平／動能減弱'],['falling','轉弱／下跌']];const lightOpts=[['green','順風／持續獲利'],['neutral','中性／訊號不明'],['red','逆風／連續停損']];let id=0;
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function selectOptions(opts,selected){return opts.map(([v,t])=>`<option value="${v}" ${v===selected?'selected':''}>${t}</option>`).join('');}
+function addRow(d={}){const tr=document.createElement('tr');tr.dataset.id=++id;tr.innerHTML=`<td><input class="symbol" aria-label="股票代號或名稱" placeholder="例如 2303 聯電" value="${esc(d.symbol||'')}"></td><td><input class="close" aria-label="收盤價" type="number" min="0" step="0.01" placeholder="收盤價"></td><td><input class="support" aria-label="支撐" type="number" min="0" step="0.01" placeholder="支撐"></td><td><input class="resistance" aria-label="壓力" type="number" min="0" step="0.01" placeholder="壓力"></td><td><input class="stop" aria-label="停損價" type="number" min="0" step="0.01" placeholder="停損價"></td><td><select class="slope" aria-label="斜率">${selectOptions(slopeOpts,d.slope||'steady')}</select></td><td><select class="light" aria-label="交易狀態">${selectOptions(lightOpts,d.light||'neutral')}</select></td><td><button type="button" class="remove">移除</button></td>`;tr.querySelector('.remove').onclick=()=>tr.remove();$('stockRows').appendChild(tr);}
+defaults.forEach(addRow);$('addRow').onclick=()=>addRow();$('scanBtn').onclick=scan;
+function scan(){const capital=Number($('capital').value),riskPct=Number($('riskPct').value),minScore=Number($('minScore').value);if(!(capital>0&&riskPct>0)){error('請輸入大於 0 的帳戶資金與單筆風險比例。');return;}const rows=[...$('stockRows').querySelectorAll('tr')].map(tr=>{const g=c=>tr.querySelector('.'+c).value.trim();return{symbol:g('symbol'),close:Number(g('close')),support:Number(g('support')),resistance:Number(g('resistance')),stop:Number(g('stop')),slope:g('slope'),light:g('light')}}).filter(r=>r.symbol);if(!rows.length){error('請至少新增一檔股票並輸入代號或名稱。');return;}const all=rows.map(r=>evaluate(r,capital,riskPct)).sort((a,b)=>b.score-a.score),visible=all.filter(r=>r.score>=minScore),valid=visible.filter(r=>r.valid&&!r.invalidated);$('summary').innerHTML=`<h2>2｜模型共振排名</h2><div class="summary-cards"><div class="card"><div class="label">輸入候選股</div><div class="value">${rows.length} 檔</div></div><div class="card"><div class="label">達門檻名單</div><div class="value">${visible.length} 檔</div></div><div class="card"><div class="label">框架尚有效</div><div class="value">${valid.length} 檔</div></div></div>${visible.length?`<div class="table-wrap"><table class="result-table"><thead><tr><th>排名</th><th>股票</th><th>共振分數</th><th>收盤價</th><th>框架區間</th><th>狀態</th><th>參考進場</th><th>停損</th><th>目標 1R</th><th>目標 2R</th><th>部位試算</th></tr></thead><tbody>${visible.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${esc(r.symbol)}</strong></td><td><strong>${r.score}/100</strong><br><small>${r.score>=70?'高共振':r.score>=55?'中度共振':'低共振'}</small></td><td>${money(r.close)}</td><td>${fmt(r.support)} — ${fmt(r.resistance)}</td><td><span class="badge ${!r.valid||r.invalidated?'red':r.score>=70?'green':'yellow'}">${r.status}</span></td><td>${r.valid?money(r.close):'—'}</td><td>${money(r.stop)}</td><td>${r.valid?money(r.target1):'—'}</td><td>${r.valid?money(r.target2):'—'}</td><td>${r.valid?r.shares.toLocaleString('zh-TW')+' 股<br><small>'+money(r.shares*r.close)+'</small>':'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p class="empty">沒有股票達到目前門檻。請降低門檻或檢查輸入資料。</p>'}<h3>個股判讀與執行紀律</h3>${visible.map(r=>`<div class="status ${!r.valid||r.invalidated?'red':r.score>=70?'green':'yellow'}"><strong>${esc(r.symbol)}｜${r.score} 分</strong> ${r.notes.map(esc).join(' ')}</div>`).join('')}<p class="muted small">收盤價僅作為參考進場價，不代表建議立即買進。部位為整張簡化試算，未計交易成本、滑價、跳空或流動性。</p>`;}
+function evaluate(r,capital,riskPct){const valid=r.close>0&&r.support>0&&r.resistance>r.support&&r.stop>0&&r.stop<r.close;const invalidated=valid&&(r.close<=r.support||r.close<=r.stop);let score=0,notes=[];if(!valid)notes.push('資料不完整或不合理，請確認收盤價、支撐、壓力與停損。');else{const p=(r.close-r.support)/(r.resistance-r.support);if(invalidated)notes.push('價格跌破支撐或防守價，框架失效，防守優先。');else if(p<.25){score+=40;notes.push('價格靠近框架支撐，仍需確認止跌訊號。');}else if(p<.65){score+=36;notes.push('價格位於框架中段，區間位置相對平衡。');}else if(p<.85){score+=24;notes.push('價格偏近壓力，上檔空間可能縮小。');}else{score+=12;notes.push('價格接近框架壓力，留意追價風險。');}}score+=({rising:30,steady:20,flat:8,falling:0})[r.slope]||0;notes.push(({rising:'斜率上升加速。',steady:'斜率持平，持續追蹤推升速度。',flat:'斜率走平、動能減弱，評估減碼或出場。',falling:'斜率轉弱，防守優先。'})[r.slope]);score+=({green:30,neutral:17,red:0})[r.light]||0;notes.push(({green:'交易狀態順風，但仍須遵守風險上限。',neutral:'交易狀態中性，降低部位並等待訊號。',red:'交易狀態逆風，縮小部位或觀望。'})[r.light]);if(invalidated)score=Math.min(score,20);const perShare=r.close-r.stop,riskBudget=capital*riskPct/100;let shares=valid?Math.floor(riskBudget/perShare):0;if(r.light==='neutral')shares=Math.floor(shares*.5);if(r.light==='red')shares=Math.floor(shares*.25);shares=Math.floor(Math.min(shares,Math.floor(capital/(r.close||1)))/1000)*1000;if(r.slope==='flat')shares=Math.floor(shares*.5/1000)*1000;if(r.slope==='falling'||invalidated)shares=0;const status=!valid?'資料不足':invalidated?'框架失效':r.slope==='falling'?'斜率轉弱':r.slope==='flat'?'動能減弱':r.light==='red'?'逆風縮部位':score>=70?'高共振觀察':'一般觀察';return{...r,valid,invalidated,score,status,notes,shares,target1:r.close+perShare,target2:r.close+2*perShare};}
+function error(m){$('summary').innerHTML=`<h2>2｜模型共振排名</h2><div class="status red"><strong>無法評分</strong>${esc(m)}</div>`;}
