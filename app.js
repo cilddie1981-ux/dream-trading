@@ -175,11 +175,23 @@ function exportCSV() {
   const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='Dream_V3_全市場掃描結果.csv'; a.click(); URL.revokeObjectURL(url);
 }
 function init() {
-  $('refreshBtn').addEventListener('click', fetchMarket);
-  $('scanBtn').addEventListener('click', runScan);
-  $('csvFile').addEventListener('change', e => { if (e.target.files?.[0]) importCSV(e.target.files[0]); });
-  $('exportBtn').addEventListener('click', exportCSV);
-  ['minPrice','minVolume','minScore','marketFilter','limit','capital','riskPct'].forEach(id => $(id).addEventListener('change', () => { if (marketData.length) runScan(); }));
-  fetchMarket();
+  const status = $('loadStatus');
+  if (!status) { console.error('Dream V3: 找不到 loadStatus 元素，請確認 index.html 與 app.js 是同一版本。'); return; }
+  setStatus('系統程式已載入。正在連線取得行情；若載入失敗，可改用 CSV。', 'yellow');
+  // 用事件委派綁定，避免個別按鈕在 DOM 載入時未找到而失效。
+  document.addEventListener('click', event => {
+    const button = event.target.closest('button');
+    if (!button) return;
+    if (button.id === 'refreshBtn') { event.preventDefault(); fetchMarket().catch(e => setStatus('行情更新失敗：' + e.message, 'red')); }
+    if (button.id === 'scanBtn') { event.preventDefault(); try { runScan(); } catch(e) { console.error(e); setStatus('掃描發生錯誤：' + e.message, 'red'); } }
+    if (button.id === 'exportBtn') { event.preventDefault(); try { exportCSV(); } catch(e) { console.error(e); setStatus('匯出失敗：' + e.message, 'red'); } }
+  });
+  const csv = $('csvFile');
+  if (csv) csv.addEventListener('change', e => { if (e.target.files && e.target.files[0]) importCSV(e.target.files[0]); });
+  ['minPrice','minVolume','minScore','marketFilter','limit','capital','riskPct'].forEach(id => { const el = $(id); if (el) el.addEventListener('change', () => { if (marketData.length) { try { runScan(); } catch(e) { setStatus('掃描發生錯誤：' + e.message, 'red'); } } }); });
+  // 全域錯誤不再讓使用者只看到「按鈕沒反應」。
+  window.addEventListener('error', e => { setStatus('程式錯誤：' + (e.message || '未知錯誤'), 'red'); });
+  window.addEventListener('unhandledrejection', e => { setStatus('非同步錯誤：' + (e.reason?.message || String(e.reason || '未知錯誤')), 'red'); });
+  fetchMarket().catch(e => setStatus('行情連線失敗：' + e.message + '。仍可載入 CSV。', 'red'));
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true}); else init();
